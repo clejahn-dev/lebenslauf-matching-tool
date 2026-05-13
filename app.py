@@ -1,6 +1,213 @@
 import streamlit as st
 from fuzzywuzzy import fuzz
 
+# Qualifikations-Synonyme und verwandte Qualifikationen
+qualifikations_synonyme = {
+    "Gesundheits und Krankenpfleger": ["Krankenschwester", "Pflegefachfrau", "Pflegefachmann", "Altenpfleger", "Krankenpflegehelfer"],
+    "Pflegefachfrau": ["Gesundheits und Krankenpfleger", "Krankenschwester", "Pflegefachmann", "Altenpfleger"],
+    "Pflegefachmann": ["Gesundheits und Krankenpfleger", "Krankenschwester", "Pflegefachfrau", "Altenpfleger"],
+    "Krankenschwester": ["Gesundheits und Krankenpfleger", "Pflegefachfrau", "Pflegefachmann", "Altenpfleger"],
+    "Einzelhandelskaufmann": ["Vertrieb", "Kundenservice"],
+    "Kaufmann für Büromanagement": ["HR / Personal", "Buchhaltung", "Kundenservice"],
+    "DATEV": ["Buchhaltung"],
+    "Bundeswehr": ["Führung", "Belastbarkeit", "Sicherheit"],
+    "Personaldienstleistungskaufmann": ["HR / Personal"]
+}
+
+# Qualifizierungskatalog
+qualifizierungs_katalog = {
+    "SAP": {
+        "schulung": "SAP Grundlagenschulung",
+        "dauer": "2 bis 5 Tage",
+        "kosten": "700 bis 2.500 €",
+        "prioritaet": "mittel"
+    },
+    "SAP HR": {
+        "schulung": "SAP HR / HCM Grundlagenschulung",
+        "dauer": "3 bis 5 Tage",
+        "kosten": "1.000 bis 3.000 €",
+        "prioritaet": "mittel"
+    },
+    "Excel": {
+        "schulung": "Excel Grundlagen oder Aufbaukurs",
+        "dauer": "1 bis 2 Tage",
+        "kosten": "300 bis 900 €",
+        "prioritaet": "mittel"
+    },
+    "DATEV": {
+        "schulung": "DATEV Grundlagenschulung Buchhaltung",
+        "dauer": "2 bis 3 Tage",
+        "kosten": "500 bis 1.200 €",
+        "prioritaet": "hoch"
+    },
+    "Staplerschein": {
+        "schulung": "Staplerschein / Flurförderzeugschulung",
+        "dauer": "1 bis 3 Tage",
+        "kosten": "150 bis 400 €",
+        "prioritaet": "hoch"
+    },
+    "Führungskräfteberatung": {
+        "schulung": "HR Business Partner Training / Führungskräfteberatung",
+        "dauer": "2 bis 5 Tage",
+        "kosten": "800 bis 2.500 €",
+        "prioritaet": "hoch"
+    },
+    "Arbeitsrecht": {
+        "schulung": "Grundlagen Arbeitsrecht",
+        "dauer": "2 bis 3 Tage",
+        "kosten": "600 bis 1.800 €",
+        "prioritaet": "hoch"
+    },
+    "Betriebsratsarbeit": {
+        "schulung": "Zusammenarbeit mit dem Betriebsrat",
+        "dauer": "1 bis 3 Tage",
+        "kosten": "500 bis 1.500 €",
+        "prioritaet": "mittel"
+    },
+    "Change Management": {
+        "schulung": "Grundlagen Change Management",
+        "dauer": "2 bis 4 Tage",
+        "kosten": "800 bis 2.500 €",
+        "prioritaet": "mittel"
+    },
+    "CRM": {
+        "schulung": "CRM Grundlagenschulung",
+        "dauer": "1 bis 2 Tage",
+        "kosten": "300 bis 1.000 €",
+        "prioritaet": "mittel"
+    },
+    "Salesforce": {
+        "schulung": "Salesforce Grundlagen",
+        "dauer": "2 bis 5 Tage",
+        "kosten": "900 bis 3.000 €",
+        "prioritaet": "mittel"
+    },
+    "Microsoft 365": {
+        "schulung": "Microsoft 365 Grundlagen",
+        "dauer": "1 bis 3 Tage",
+        "kosten": "400 bis 1.200 €",
+        "prioritaet": "mittel"
+    },
+    "Active Directory": {
+        "schulung": "Active Directory Grundlagen",
+        "dauer": "2 bis 4 Tage",
+        "kosten": "800 bis 2.500 €",
+        "prioritaet": "hoch"
+    },
+    "IT Sicherheit": {
+        "schulung": "IT Security Grundlagen",
+        "dauer": "2 bis 5 Tage",
+        "kosten": "900 bis 3.000 €",
+        "prioritaet": "hoch"
+    },
+    "Pflegedokumentation": {
+        "schulung": "Pflegedokumentation und Pflegeplanung",
+        "dauer": "1 bis 2 Tage",
+        "kosten": "250 bis 800 €",
+        "prioritaet": "hoch"
+    },
+    "Hygiene": {
+        "schulung": "Hygieneschulung Pflege",
+        "dauer": "1 Tag",
+        "kosten": "100 bis 400 €",
+        "prioritaet": "hoch"
+    },
+    "Medikamentengabe": {
+        "schulung": "Medikamentengabe Schulung",
+        "dauer": "1 bis 2 Tage",
+        "kosten": "200 bis 700 €",
+        "prioritaet": "hoch"
+    },
+    "Ladungssicherung": {
+        "schulung": "Ladungssicherung Schulung",
+        "dauer": "1 bis 2 Tage",
+        "kosten": "200 bis 600 €",
+        "prioritaet": "mittel"
+    },
+    "Warenwirtschaftssystem": {
+        "schulung": "Warenwirtschaftssystem Grundlagen",
+        "dauer": "1 bis 3 Tage",
+        "kosten": "300 bis 1.200 €",
+        "prioritaet": "mittel"
+    }
+}
+
+# Gehaltsranges pro Berufsgruppe und Erfahrung
+gehalts_ranges = {
+    "Pflege": {
+        0: (28000, 35000),
+        1: (30000, 38000),
+        2: (32000, 42000),
+        5: (35000, 48000),
+        10: (40000, 55000)
+    },
+    "Vertrieb": {
+        0: (25000, 35000),
+        1: (28000, 40000),
+        2: (32000, 45000),
+        5: (38000, 55000),
+        10: (45000, 70000)
+    },
+    "Lager / Logistik": {
+        0: (22000, 28000),
+        1: (24000, 30000),
+        2: (26000, 33000),
+        5: (28000, 36000),
+        10: (30000, 40000)
+    },
+    "HR / Personal": {
+        0: (28000, 38000),
+        1: (32000, 42000),
+        2: (36000, 48000),
+        5: (42000, 58000),
+        10: (50000, 70000)
+    },
+    "Buchhaltung": {
+        0: (25000, 32000),
+        1: (28000, 36000),
+        2: (32000, 40000),
+        5: (36000, 45000),
+        10: (40000, 55000)
+    },
+    "Kundenservice": {
+        0: (22000, 28000),
+        1: (24000, 30000),
+        2: (26000, 33000),
+        5: (28000, 36000),
+        10: (30000, 40000)
+    },
+    "IT Support": {
+        0: (25000, 32000),
+        1: (28000, 36000),
+        2: (32000, 42000),
+        5: (38000, 50000),
+        10: (45000, 65000)
+    },
+    "Maler und Lackierer": {
+        0: (22000, 28000),
+        1: (24000, 30000),
+        2: (26000, 33000),
+        5: (28000, 36000),
+        10: (30000, 40000)
+    },
+    "Büroassistenz": {
+        0: (22000, 28000),
+        1: (24000, 30000),
+        2: (26000, 33000),
+        5: (28000, 36000),
+        10: (30000, 40000)
+    }
+}
+
+# Softskill-Ähnlichkeiten
+softskill_synonyme = {
+    "Kundenservice": ["Kommunikation", "Serviceorientierung"],
+    "Pflegeberatung": ["Angehörigenberatung"],
+    "Dokumentation": ["Pflegedokumentation"],
+    "Verkaufsgespräch": ["Kundenberatung"],
+    "Teamführung": ["Führungserfahrung"]
+}
+
 # Initialisiere Session State
 if "reset_counter" not in st.session_state:
     st.session_state.reset_counter = 0
@@ -280,18 +487,9 @@ berufsgruppe = st.selectbox(
 selected_group = berufsgruppe if berufsgruppe in berufsgruppen else "Bitte auswählen"
 selected_key = selected_group.lower().replace(" ", "_").replace("/", "_") if selected_group != "Bitte auswählen" else "none"
 
-if selected_group in berufsgruppen:
-    profile = berufsgruppen[selected_group]
-    pflicht_skills = profile.get("pflicht") or profile.get("pflichtskills") or []
-    wunsch_skills = profile.get("wunsch") or profile.get("wunschskills") or []
-    qualifikationen = profile.get("qualifikationen") or []
-    suggested_pflicht = ", ".join(pflicht_skills)
-    suggested_wunsch = ", ".join(wunsch_skills)
-    suggested_qualifikationen = ", ".join(qualifikationen)
-else:
-    suggested_pflicht = ""
-    suggested_wunsch = ""
-    suggested_qualifikationen = ""
+suggested_pflicht = ", ".join(berufsgruppen[selected_group]["pflicht"]) if selected_group in berufsgruppen else ""
+suggested_wunsch = ", ".join(berufsgruppen[selected_group]["wunsch"]) if selected_group in berufsgruppen else ""
+suggested_qualifikationen = ", ".join(berufsgruppen[selected_group]["qualifikationen"]) if selected_group in berufsgruppen else ""
 
 counter = st.session_state.reset_counter
 
@@ -356,6 +554,36 @@ with col_stelle:
         key=f"stelle_min_erfahrung_{counter}"
     )
 
+col_gehalt_bewerber, col_gehalt_stelle = st.columns(2)
+
+with col_gehalt_bewerber:
+    bewerber_gehalt = st.number_input(
+        "Gehaltswunsch des Bewerbers (€ brutto/Jahr)",
+        min_value=0,
+        max_value=200000,
+        value=0,
+        step=1000,
+        key=f"bewerber_gehalt_{counter}"
+    )
+
+with col_gehalt_stelle:
+    stelle_gehalt_min = st.number_input(
+        "Gehaltsrahmen der Stelle (min € brutto/Jahr)",
+        min_value=0,
+        max_value=200000,
+        value=0,
+        step=1000,
+        key=f"stelle_gehalt_min_{counter}"
+    )
+    stelle_gehalt_max = st.number_input(
+        "Gehaltsrahmen der Stelle (max € brutto/Jahr)",
+        min_value=0,
+        max_value=200000,
+        value=0,
+        step=1000,
+        key=f"stelle_gehalt_max_{counter}"
+    )
+
 # Buttons in einer Reihe
 col_btn1, col_btn2 = st.columns(2)
 with col_btn1:
@@ -379,147 +607,87 @@ if st.session_state.show_results and bewerber_eingabe and pflicht_skills_eingabe
     qual_bewerber_set = set(q.strip().lower() for q in qualifikation_bewerber.split(",") if q.strip())
     qual_stelle_set = set(q.strip().lower() for q in qualifikation_stelle.split(",") if q.strip())
 
-    # Ähnliche Skills: explizite Synonyme + Fuzzy-Matching
-    synonym_map = {
-        "produktion": {"lagerarbeit"},
-        "bundeswehr": {"belastbarkeit", "teamfähigkeit"},
-    }
-
-    def find_similar_skills(bewerber_skills, stellen_skills, threshold=80):
-        direct = bewerber_skills & stellen_skills
-        partial = set()
-        for b_skill in bewerber_skills:
-            remaining = stellen_skills - direct - partial
-            for s_skill in remaining:
-                if s_skill in synonym_map.get(b_skill, set()):
-                    partial.add(s_skill)
-                elif fuzz.ratio(b_skill, s_skill) >= threshold:
-                    partial.add(s_skill)
-        return direct, partial
-
-    qualifizierungs_empfehlungen = {
-        "sap": ("SAP Grundlagenschulung", "2 bis 5 Tage"),
-        "excel": ("Excel Grundkurs", "1 bis 3 Tage"),
-        "hr business partner": ("HR Business Partner Training", "3 bis 5 Tage"),
-        "recruiting": ("Recruiting und Auswahlverfahren", "2 bis 4 Tage"),
-        "arbeitsrecht": ("Arbeitsrecht für HR", "2 bis 4 Tage"),
-        "personalbetreuung": ("Personalbetreuung und -entwicklung", "2 bis 4 Tage"),
-        "lagerverwaltung": ("Lagerverwaltungskurs", "2 bis 5 Tage"),
-        "kommissionierung": ("Kommissionierungstraining", "1 bis 3 Tage"),
-        "sicherheitsvorschriften": ("Arbeitssicherheit und Vorschriften", "1 bis 2 Tage"),
-        "staplerfahren": ("Staplerschein", "2 bis 3 Tage"),
-        "logistiksoftware": ("Logistiksoftware-Schulung", "2 bis 4 Tage"),
-        "versandabwicklung": ("Versand- und Zollabwicklung", "1 bis 3 Tage"),
-        "streichen": ("Maler- und Lackierer-Grundkurs", "3 bis 5 Tage"),
-        "vorbereitung": ("Oberflächenvorbereitungstechniken", "1 bis 2 Tage"),
-        "oberflächenbehandlung": ("Oberflächenbehandlung und Beschichtung", "2 bis 4 Tage"),
-        "tapezieren": ("Tapeziertraining", "1 bis 3 Tage"),
-        "spachteln": ("Spachtel- und Flächentechnik", "1 bis 3 Tage"),
-        "farbberatung": ("Farb- und Materialberatung", "1 bis 2 Tage"),
-        "pflegeplanung": ("Pflegeplanung und Dokumentation", "2 bis 4 Tage"),
-        "medikamentengabe": ("Medikamentengabe-Schulung", "2 bis 3 Tage"),
-        "hygiene": ("Hygieneschulung", "1 bis 2 Tage"),
-        "dokumentation": ("Pflegedokumentation", "1 bis 2 Tage"),
-        "empathie": ("Kommunikation und Empathie im Pflegebereich", "1 bis 2 Tage"),
-        "kundenakquise": ("Verkaufstraining Kundenakquise", "2 bis 4 Tage"),
-        "verkaufsberatung": ("Verkaufsberatung und Gesprächsführung", "2 bis 4 Tage"),
-        "abschlussstärke": ("Abschlussstarkes Verkaufen", "1 bis 2 Tage"),
-        "crm": ("CRM-Grundlagen", "1 bis 3 Tage"),
-        "networking": ("Networking im Vertrieb", "1 bis 2 Tage"),
-        "verhandlung": ("Verhandlungstechnik", "2 bis 3 Tage"),
-        "hardware-support": ("Hardware-Support-Grundlagen", "2 bis 4 Tage"),
-        "troubleshooting": ("Troubleshooting und Fehlersuche", "2 bis 4 Tage"),
-        "kundensupport": ("Kundensupport und Service", "1 bis 3 Tage"),
-        "netzwerktechnik": ("Netzwerktechnik Basics", "2 bis 4 Tage"),
-        "windows": ("Windows-Administration", "2 bis 4 Tage"),
-        "itil": ("ITIL Grundkurs", "2 bis 3 Tage"),
-        "buchführung": ("Buchführungsgrundlagen", "3 bis 5 Tage"),
-        "rechnungswesen": ("Rechnungswesen kompakt", "3 bis 5 Tage"),
-        "zahlungsverkehr": ("Zahlungsverkehr und Bankprozesse", "1 bis 2 Tage"),
-        "datev": ("DATEV-Schulung", "2 bis 4 Tage"),
-        "steuergrundlagen": ("Steuerrecht Basics", "2 bis 4 Tage"),
-        "kundenkommunikation": ("Kundenkommunikationstraining", "1 bis 3 Tage"),
-        "beschwerdemanagement": ("Beschwerdemanagement", "1 bis 2 Tage"),
-        "serviceorientierung": ("Serviceorientierung und Kundenbindung", "1 bis 2 Tage"),
-        "multitasking": ("Effektives Multitasking", "1 Tag"),
-        "konfliktlösung": ("Konfliktlösung im Kundenservice", "1 bis 2 Tage")
-    }
-
-    def format_recommendation(skill_set):
-        lines = []
-        for skill in sorted(skill_set):
-            skill_key = skill.lower()
-            if skill_key in qualifizierungs_empfehlungen:
-                course, duration = qualifizierungs_empfehlungen[skill_key]
-                lines.append(f"• {skill}: {course} ({duration})")
-            else:
-                lines.append(f"• {skill}")
-        return "\n".join(lines)
-
-    treffer_pflicht_direct, treffer_pflicht_partial = find_similar_skills(bewerber_skills, pflicht_skills)
-    treffer_wunsch_direct, treffer_wunsch_partial = find_similar_skills(bewerber_skills, wunsch_skills)
-
-    # Fehlende Skills (nur direkte, da 'ähnlich' nicht als fehlend gelten)
-    fehlende_pflicht = pflicht_skills - bewerber_skills - treffer_pflicht_partial
-    fehlende_wunsch = wunsch_skills - bewerber_skills - treffer_wunsch_partial
-
-    # Berechnung des gewichteten Scores
-    gewicht_pflicht = 2
-    gewicht_wunsch = 1
-    partial_weight = 0.5  # Halbe Punkte für ähnliche Skills
-
-    max_punkte = gewicht_pflicht * len(pflicht_skills) + gewicht_wunsch * len(wunsch_skills)
-    erzielte_punkte = (
-        gewicht_pflicht * len(treffer_pflicht_direct) +
-        gewicht_wunsch * len(treffer_wunsch_direct) +
-        partial_weight * gewicht_pflicht * len(treffer_pflicht_partial) +
-        partial_weight * gewicht_wunsch * len(treffer_wunsch_partial)
-    )
-
-    if max_punkte > 0:
-        matchscore = (erzielte_punkte / max_punkte) * 100
-    else:
-        matchscore = 0.0
-
-    # Penalty für fehlende Skills: stärker für Pflichtskills
-    penalty_pflicht = 0.1 * len(fehlende_pflicht)  # 10% Abzug pro fehlendem Pflichtskill
-    penalty_wunsch = 0.05 * len(fehlende_wunsch)  # 5% Abzug pro fehlendem Wunschskill
-    total_penalty = penalty_pflicht + penalty_wunsch
-
-    matchscore = max(0, matchscore * (1 - total_penalty))  # Verhindert negative Scores
-
-    # Qualifikationsscore berechnen
-    qual_direct = qual_bewerber_set & qual_stelle_set
-    qual_partial = set()
-    for bq in qual_bewerber_set:
-        for rq in qual_stelle_set - qual_direct:
-            if fuzz.ratio(bq, rq) >= 80 or bq in rq or rq in bq:
-                qual_partial.add(rq)
-
-    if qual_stelle_set:
-        if qual_direct:
-            qualification_score = 100.0
-        elif qual_partial:
-            qualification_score = 60.0
+    # Funktion für Qualifikationsmatching
+    def calculate_qualification_score(bewerber_quals, stelle_quals):
+        if not stelle_quals:
+            return 100.0
+        direct_match = False
+        related_match = False
+        partial_match = False
+        for bq in bewerber_quals:
+            for sq in stelle_quals:
+                if bq == sq or fuzz.ratio(bq, sq) >= 90:
+                    direct_match = True
+                elif bq in qualifikations_synonyme and sq in qualifikations_synonyme[bq]:
+                    related_match = True
+                elif any(sq in related for related in qualifikations_synonyme.get(bq, [])):
+                    related_match = True
+                elif fuzz.ratio(bq, sq) >= 60:
+                    partial_match = True
+        if direct_match:
+            return 100.0
+        elif related_match:
+            return 70.0
+        elif partial_match:
+            return 50.0
         else:
-            qualification_score = 20.0
-    else:
-        qualification_score = 100.0
+            return 10.0
 
-    # Berechnung des Erfahrungsscores
+    # Funktion für Skill-Matching mit Softskills
+    def find_similar_skills(bewerber_skills, stellen_skills):
+        direct = bewerber_skills & stellen_skills
+        similar = set()
+        for b_skill in bewerber_skills - direct:
+            for s_skill in stellen_skills - direct:
+                if fuzz.ratio(b_skill, s_skill) >= 80:
+                    similar.add(s_skill)
+                elif s_skill in softskill_synonyme.get(b_skill, []):
+                    similar.add(s_skill)
+        return direct, similar
+
+    # Skill-Matching
+    pflicht_direct, pflicht_similar = find_similar_skills(bewerber_skills, pflicht_skills)
+    wunsch_direct, wunsch_similar = find_similar_skills(bewerber_skills, wunsch_skills)
+
+    # Scores berechnen
+    pflicht_score = (len(pflicht_direct) + 0.5 * len(pflicht_similar)) / len(pflicht_skills) * 100 if pflicht_skills else 100
+    wunsch_score = (len(wunsch_direct) + 0.5 * len(wunsch_similar)) / len(wunsch_skills) * 100 if wunsch_skills else 100
+
+    # Softskill-Score (ähnliche Skills)
+    softskill_score = min(100, len(pflicht_similar) * 10 + len(wunsch_similar) * 5)
+
+    # Erfahrungs-Score
     if stelle_min_erfahrung == 0:
-        # Wenn keine Erfahrung gefordert ist, gibt es vollen Score
         experience_score = 100.0
     elif bewerber_erfahrung >= stelle_min_erfahrung:
-        # Bewerber hat mindestens die geforderte Erfahrung
         experience_score = 100.0
     else:
-        # Anteilige Berechnung: Bewerber-Erfahrung / Geforderte Erfahrung
         experience_score = (bewerber_erfahrung / stelle_min_erfahrung) * 100.0
 
-    # Gesamtscore: 60% Skill-Score + 20% Erfahrungs-Score + 20% Qualifikations-Score
-    gesamtscore = (matchscore * 0.6) + (experience_score * 0.2) + (qualification_score * 0.2)
-    gesamtscore = max(0, min(100, gesamtscore))  # Begrenzt auf 0-100%
+    # Qualifikations-Score
+    qualification_score = calculate_qualification_score(qual_bewerber_set, qual_stelle_set)
+
+    # Gesamtscore: Pflicht 45%, Wunsch 10%, Erfahrung 20%, Qualifikation 20%, Softskill 5%
+    skill_score = (pflicht_score * 0.45) + (wunsch_score * 0.1) + (softskill_score * 0.05)
+    gesamtscore = (skill_score * 0.7) + (experience_score * 0.2) + (qualification_score * 0.2)
+    gesamtscore = max(0, min(100, gesamtscore))
+
+    # Gehaltsmatching
+    if selected_group in gehalts_ranges:
+        erfahrung_key = min([k for k in gehalts_ranges[selected_group].keys() if bewerber_erfahrung >= k], default=0)
+        markt_min, markt_max = gehalts_ranges[selected_group][erfahrung_key]
+        if bewerber_gehalt == 0:
+            gehalt_match = "Nicht angegeben"
+        elif bewerber_gehalt < stelle_gehalt_min:
+            gehalt_match = "Unter Marktwert"
+        elif bewerber_gehalt <= stelle_gehalt_max:
+            gehalt_match = "Passend"
+        elif bewerber_gehalt <= markt_max:
+            gehalt_match = "Leicht über Budget"
+        else:
+            gehalt_match = "Deutlich über Budget"
+    else:
+        gehalt_match = "Keine Daten verfügbar"
 
     st.subheader("Ergebnis")
     
@@ -542,7 +710,7 @@ if st.session_state.show_results and bewerber_eingabe and pflicht_skills_eingabe
         show_score_with_rating("Gesamtscore", gesamtscore)
     
     with col_skill:
-        show_score_with_rating("Skill-Score (60%)", matchscore)
+        show_score_with_rating("Skill-Score (70%)", skill_score)
     
     with col_exp:
         show_score_with_rating("Erfahrungs-Score (20%)", experience_score)
@@ -550,90 +718,119 @@ if st.session_state.show_results and bewerber_eingabe and pflicht_skills_eingabe
     with col_qual:
         show_score_with_rating("Qualifikations-Score (20%)", qualification_score)
 
+    # Gehaltsmatching anzeigen
+    st.subheader("Gehaltsmatching")
+    st.write(f"**Bewertung**: {gehalt_match}")
+    if selected_group in gehalts_ranges:
+        erfahrung_key = min([k for k in gehalts_ranges[selected_group].keys() if bewerber_erfahrung >= k], default=0)
+        markt_min, markt_max = gehalts_ranges[selected_group][erfahrung_key]
+        st.write(f"**Marktüblicher Rahmen** (bei {bewerber_erfahrung} Jahren Erfahrung): {markt_min:,} - {markt_max:,} €")
+
     col1, col2 = st.columns(2)
 
     with col1:
         st.write("**Treffer (Pflichtskills):**")
-        if treffer_pflicht_direct:
-            st.success(f"Direkt: {', '.join(treffer_pflicht_direct)}")
-        if treffer_pflicht_partial:
-            st.info(f"Ähnlich: {', '.join(treffer_pflicht_partial)}")
-        if not treffer_pflicht_direct and not treffer_pflicht_partial:
+        if pflicht_direct:
+            st.success(f"Direkt: {', '.join(sorted(pflicht_direct))}")
+        if pflicht_similar:
+            st.info(f"Ähnlich: {', '.join(sorted(pflicht_similar))}")
+        if not pflicht_direct and not pflicht_similar:
             st.info("Keine")
-
-        st.write("**Fehlende Pflichtskills:**")
-        if fehlende_pflicht:
-            st.error(", ".join(fehlende_pflicht))
-        else:
-            st.success("Alle vorhanden")
 
     with col2:
         st.write("**Treffer (Wunschskills):**")
-        if treffer_wunsch_direct:
-            st.success(f"Direkt: {', '.join(treffer_wunsch_direct)}")
-        if treffer_wunsch_partial:
-            st.info(f"Ähnlich: {', '.join(treffer_wunsch_partial)}")
-        if not treffer_wunsch_direct and not treffer_wunsch_partial:
+        if wunsch_direct:
+            st.success(f"Direkt: {', '.join(sorted(wunsch_direct))}")
+        if wunsch_similar:
+            st.info(f"Ähnlich: {', '.join(sorted(wunsch_similar))}")
+        if not wunsch_direct and not wunsch_similar:
             st.info("Keine")
-
-        st.write("**Fehlende Wunschskills:**")
-        if fehlende_wunsch:
-            st.warning(", ".join(fehlende_wunsch))
-        else:
-            st.info("Alle vorhanden")
 
     st.subheader("Qualifikationsmatching")
     if qual_stelle_set:
-        if qual_direct:
-            st.success(f"Direkte Übereinstimmung: {', '.join(sorted(qual_direct))}")
-        elif qual_partial:
-            st.info(f"Teilweise passend: {', '.join(sorted(qual_partial))}")
+        if qualification_score == 100:
+            st.success("Direkte Übereinstimmung gefunden")
+        elif qualification_score == 70:
+            st.info("Verwandte Qualifikation vorhanden")
+        elif qualification_score == 50:
+            st.warning("Teilweise passende Qualifikation")
         else:
-            st.error("Keine passende Qualifikation gefunden.")
+            st.error("Keine passende Qualifikation")
     else:
-        st.info("Keine erforderliche Qualifikation angegeben.")
+        st.info("Keine erforderliche Qualifikation angegeben")
 
-    # Qualifizierungsempfehlung
-    st.subheader("Qualifizierungsempfehlung")
+    # Fehlende Skills berechnen
+    fehlende_pflicht = pflicht_skills - bewerber_skills - pflicht_similar
+    fehlende_wunsch = wunsch_skills - bewerber_skills - wunsch_similar
+
+    # Qualifizierungsempfehlungen
+    st.subheader("Qualifizierungsempfehlungen")
     
-    if fehlende_pflicht or fehlende_wunsch:
-        if fehlende_pflicht:
-            st.error("**Schulungsbedarf (Pflicht):**")
-            st.error(
-                "Folgende Qualifikationen müssen zwingend nachgeschult werden:\n\n" +
-                format_recommendation(fehlende_pflicht)
-            )
+    def get_recommendation(skill, is_pflicht=True):
+        skill_lower = skill.lower()
+        if skill_lower in qualifizierungs_katalog:
+            info = qualifizierungs_katalog[skill_lower]
+            prioritaet = "hoch" if is_pflicht else info["prioritaet"]
+            return {
+                "skill": skill,
+                "schulung": info["schulung"],
+                "dauer": info["dauer"],
+                "kosten": info["kosten"],
+                "prioritaet": prioritaet
+            }
+        else:
+            return {
+                "skill": skill,
+                "schulung": "Fachliche Einarbeitung / interne Schulung",
+                "dauer": "1 bis 5 Tage",
+                "kosten": "0 bis 1.000 €",
+                "prioritaet": "hoch" if is_pflicht else "mittel"
+            }
+
+    empfehlungen = []
+    for skill in fehlende_pflicht:
+        empfehlungen.append(get_recommendation(skill, True))
+    for skill in fehlende_wunsch:
+        empfehlungen.append(get_recommendation(skill, False))
+
+    if empfehlungen:
+        # Sortieren nach Priorität
+        prioritaet_order = {"hoch": 0, "mittel": 1, "niedrig": 2}
+        empfehlungen.sort(key=lambda x: prioritaet_order.get(x["prioritaet"], 3))
         
-        if fehlende_wunsch:
-            st.warning("**Optionale Weiterbildung:**")
-            st.warning(
-                "Diese Qualifikationen werden empfohlen, sind aber nicht zwingend erforderlich:\n\n" +
-                format_recommendation(fehlende_wunsch)
-            )
+        for emp in empfehlungen:
+            if emp["prioritaet"] == "hoch":
+                st.error(f"**{emp['skill']}** (Priorität: {emp['prioritaet']})")
+            else:
+                st.warning(f"**{emp['skill']}** (Priorität: {emp['prioritaet']})")
+            st.write(f"- Schulung: {emp['schulung']}")
+            st.write(f"- Dauer: {emp['dauer']}")
+            st.write(f"- Kosten: {emp['kosten']}")
+            st.write("---")
+        
+        # Gesamtschätzung
+        total_dauer_min = sum(int(d.split()[0]) for emp in empfehlungen for d in emp["dauer"].split(" bis ") if d.split()[0].isdigit())
+        total_dauer_max = sum(int(d.split()[0]) for emp in empfehlungen for d in emp["dauer"].split(" bis ")[-1] if d.split()[0].isdigit())
+        total_kosten_min = sum(int(k.split()[0].replace(".", "")) for emp in empfehlungen for k in emp["kosten"].split(" bis ") if k.split()[0].replace(".", "").isdigit())
+        total_kosten_max = sum(int(k.split()[0].replace(".", "")) for emp in empfehlungen for k in emp["kosten"].split(" bis ")[-1] if k.split()[0].replace(".", "").isdigit())
+        
+        st.subheader("Geschätzter Qualifizierungsaufwand")
+        st.write(f"**Dauer**: ca. {total_dauer_min} bis {total_dauer_max} Tage")
+        st.write(f"**Kosten**: ca. {total_kosten_min:,} bis {total_kosten_max:,} €")
+        st.caption("*Unverbindliche Richtwerte als Orientierung*")
     else:
-        st.success("✓ Keine Qualifizierungsempfehlung nötig - alle Anforderungen erfüllt!")
+        st.success("✓ Keine Qualifizierungsempfehlungen nötig - alle Anforderungen erfüllt!")
 
-    # Geschätzte Einarbeitungszeit
-    st.subheader("Geschätzte Einarbeitungszeit")
-    
-    if gesamtscore >= 80:
-        einarbeitungszeit = "1 bis 4 Wochen"
-        st.success(f"**{einarbeitungszeit}**\nDer Kandidat ist sehr gut qualifiziert und kann schnell produktiv werden.")
+    # Professionelle Einschätzung
+    st.subheader("Einschätzung")
+    if gesamtscore >= 90:
+        st.success("**Sehr gut geeignet** - Der Kandidat passt hervorragend zur Position und kann sofort starten.")
+    elif gesamtscore >= 75:
+        st.success("**Gut geeignet** - Starke Übereinstimmung mit geringem Qualifizierungsbedarf.")
     elif gesamtscore >= 60:
-        einarbeitungszeit = "1 bis 3 Monate"
-        st.info(f"**{einarbeitungszeit}**\nDer Kandidat hat gute Grundlagen und benötigt eine moderate Einarbeitungszeit.")
+        st.info("**Grundsätzlich geeignet mit Einarbeitung** - Gute Grundlagen vorhanden, moderate Unterstützung erforderlich.")
     elif gesamtscore >= 40:
-        einarbeitungszeit = "3 bis 6 Monate"
-        st.warning(f"**{einarbeitungszeit}**\nDer Kandidat benötigt eine längere Einarbeitungszeit mit intensiver Unterstützung.")
+        st.warning("**Bedingt geeignet mit deutlichem Qualifizierungsbedarf** - Potenzial vorhanden, aber intensive Schulung nötig.")
     else:
-        st.error("**Aktuell nicht empfehlenswert**\nDer Kandidat benötigt umfangreiche Qualifizierung vor der Besetzung dieser Position.")
+        st.error("**Aktuell nicht passend** - Umfangreiche Qualifizierung erforderlich oder Quereinstieg prüfen.")
 
-        # Einschätzung basierend auf Gesamtscore
-        if gesamtscore >= 80:
-            st.success("Einschätzung: Sehr gute Passung")
-        elif gesamtscore >= 60:
-            st.info("Einschätzung: Gute Passung mit kleineren Lücken")
-        elif gesamtscore >= 40:
-            st.warning("Einschätzung: Teilweise passend, Qualifizierung prüfen")
-        else:
-            st.error("Einschätzung: Aktuell eher geringe Passung")
