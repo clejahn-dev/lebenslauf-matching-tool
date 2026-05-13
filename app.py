@@ -7,12 +7,104 @@ qualifikations_synonyme = {
     "Pflegefachfrau": ["Gesundheits und Krankenpfleger", "Krankenschwester", "Pflegefachmann", "Altenpfleger"],
     "Pflegefachmann": ["Gesundheits und Krankenpfleger", "Krankenschwester", "Pflegefachfrau", "Altenpfleger"],
     "Krankenschwester": ["Gesundheits und Krankenpfleger", "Pflegefachfrau", "Pflegefachmann", "Altenpfleger"],
+    "Altenpfleger": ["Gesundheits und Krankenpfleger", "Pflegefachfrau", "Pflegefachmann", "Krankenschwester"],
     "Einzelhandelskaufmann": ["Vertrieb", "Kundenservice"],
-    "Kaufmann für Büromanagement": ["HR / Personal", "Buchhaltung", "Kundenservice"],
+    "Kaufmann für Büromanagement": ["HR / Personal", "Buchhaltung", "Kundenservice", "Büroassistenz"],
+    "Industriekaufmann": ["Einkauf", "Buchhaltung", "Controlling", "Vertrieb", "Projektmanagement"],
+    "Fachinformatiker Systemintegration": ["IT Support"],
+    "Fachinformatiker Anwendungsentwicklung": ["Softwareentwicklung"],
+    "Fachkraft für Schutz und Sicherheit": ["Sicherheitsdienst"],
+    "Servicekraft Schutz und Sicherheit": ["Sicherheitsdienst"],
+    "Sachkundeprüfung 34a": ["Sicherheitsdienst"],
     "DATEV": ["Buchhaltung"],
     "Bundeswehr": ["Führung", "Belastbarkeit", "Sicherheit"],
     "Personaldienstleistungskaufmann": ["HR / Personal"]
 }
+
+# Gehaltsrahmen pro Berufsgruppe und Erfahrungslevel
+gehaltsrahmen_nach_beruf = {
+    "Büroassistenz": {
+        "junior": {"min": 30000, "max": 38000},
+        "mid": {"min": 36000, "max": 46000},
+        "senior": {"min": 43000, "max": 55000}
+    },
+    "HR / Personal": {
+        "junior": {"min": 38000, "max": 48000},
+        "mid": {"min": 48000, "max": 65000},
+        "senior": {"min": 65000, "max": 85000}
+    },
+    "Lager / Logistik": {
+        "junior": {"min": 28000, "max": 36000},
+        "mid": {"min": 34000, "max": 45000},
+        "senior": {"min": 42000, "max": 55000}
+    },
+    "Maler und Lackierer": {
+        "junior": {"min": 30000, "max": 38000},
+        "mid": {"min": 36000, "max": 48000},
+        "senior": {"min": 45000, "max": 58000}
+    },
+    "Pflege": {
+        "junior": {"min": 35000, "max": 43000},
+        "mid": {"min": 42000, "max": 52000},
+        "senior": {"min": 50000, "max": 65000}
+    },
+    "Vertrieb": {
+        "junior": {"min": 35000, "max": 45000},
+        "mid": {"min": 45000, "max": 65000},
+        "senior": {"min": 60000, "max": 90000}
+    },
+    "IT Support": {
+        "junior": {"min": 38000, "max": 50000},
+        "mid": {"min": 50000, "max": 65000},
+        "senior": {"min": 65000, "max": 85000}
+    },
+    "Buchhaltung": {
+        "junior": {"min": 38000, "max": 48000},
+        "mid": {"min": 48000, "max": 65000},
+        "senior": {"min": 60000, "max": 80000}
+    },
+    "Kundenservice": {
+        "junior": {"min": 28000, "max": 36000},
+        "mid": {"min": 34000, "max": 45000},
+        "senior": {"min": 42000, "max": 55000}
+    },
+    "Sicherheitsdienst": {
+        "junior": {"min": 28000, "max": 36000},
+        "mid": {"min": 34000, "max": 46000},
+        "senior": {"min": 42000, "max": 60000}
+    },
+    "Projektmanagement": {
+        "junior": {"min": 45000, "max": 58000},
+        "mid": {"min": 58000, "max": 78000},
+        "senior": {"min": 75000, "max": 100000}
+    },
+    "Controlling": {
+        "junior": {"min": 45000, "max": 58000},
+        "mid": {"min": 58000, "max": 78000},
+        "senior": {"min": 75000, "max": 100000}
+    },
+    "Marketing": {
+        "junior": {"min": 38000, "max": 50000},
+        "mid": {"min": 50000, "max": 70000},
+        "senior": {"min": 65000, "max": 90000}
+    },
+    "E-Commerce": {
+        "junior": {"min": 38000, "max": 50000},
+        "mid": {"min": 50000, "max": 70000},
+        "senior": {"min": 65000, "max": 90000}
+    },
+    "Data Analyst": {
+        "junior": {"min": 45000, "max": 58000},
+        "mid": {"min": 58000, "max": 78000},
+        "senior": {"min": 75000, "max": 100000}
+    },
+    "Softwareentwicklung": {
+        "junior": {"min": 50000, "max": 65000},
+        "mid": {"min": 65000, "max": 85000},
+        "senior": {"min": 85000, "max": 115000}
+    }
+}
+
 
 # Qualifizierungskatalog
 qualifizierungs_katalog = {
@@ -213,6 +305,12 @@ if "reset_counter" not in st.session_state:
     st.session_state.reset_counter = 0
 if "show_results" not in st.session_state:
     st.session_state.show_results = False
+if "uploaded_logo" not in st.session_state:
+    st.session_state.uploaded_logo = None
+if "uploaded_lebenslauf" not in st.session_state:
+    st.session_state.uploaded_lebenslauf = None
+if "bewerber_skills_text" not in st.session_state:
+    st.session_state.bewerber_skills_text = ""
 
 # Reset-Funktion
 def reset_inputs():
@@ -231,13 +329,13 @@ st.write("Vergleiche Bewerber-Skills mit Anforderungen aus einer Stellenanzeige.
 
 berufsgruppen = {
     "Büroassistenz": {
-        "pflicht": ["Office", "Terminplanung", "Kommunikation"],
-        "wunsch": ["Excel", "Textverarbeitung", "Teamarbeit"],
+        "pflichtskills": ["Office", "Terminplanung", "Kommunikation"],
+        "wunschskills": ["Excel", "Textverarbeitung", "Teamarbeit"],
         "qualifikationen": []
     },
     "HR / Personal": {
-        "pflicht": ["Personalbetreuung", "Arbeitsrecht", "Führungskräfteberatung", "Recruiting", "Vertragswesen", "Mitarbeitergespräche"],
-        "wunsch": ["SAP HR", "Betriebsratsarbeit", "Change Management", "Personalentwicklung", "Personalcontrolling", "Employer Branding", "HR Prozesse", "Excel"],
+        "pflichtskills": ["Personalbetreuung", "Arbeitsrecht", "Führungskräfteberatung", "Recruiting", "Vertragswesen", "Mitarbeitergespräche"],
+        "wunschskills": ["SAP HR", "Betriebsratsarbeit", "Change Management", "Personalentwicklung", "Personalcontrolling", "Employer Branding", "HR Prozesse", "Excel"],
         "qualifikationen": ["Personalfachkaufmann", "Personalreferent", "Betriebswirtschaft mit Schwerpunkt Personal", "Wirtschaftsrecht", "HR Management", "Personaldienstleistungskaufmann", "Kaufmann für Büromanagement mit HR Erfahrung"]
     }
 }
@@ -473,6 +571,147 @@ berufsprofile = {
             "Kundenberater mit Berufserfahrung",
             "Call Center Agent mit Berufserfahrung"
         ]
+    },
+    "Sicherheitsdienst": {
+        "pflichtskills": [
+            "Sicherheitsdienst", "Objektschutz", "Kontrollgänge", "Zugangskontrolle", "Deeskalation",
+            "Berichtswesen", "Zuverlässigkeit", "Verantwortungsbewusstsein", "Kommunikation", "Schichtbereitschaft"
+        ],
+        "wunschskills": [
+            "Sachkundeprüfung 34a", "Ersthelfer", "Brandschutzhelfer", "Personenschutz",
+            "Empfangsdienst", "Führerschein Klasse B", "Englisch", "Konfliktmanagement"
+        ],
+        "qualifikationen": [
+            "Fachkraft für Schutz und Sicherheit", "Servicekraft für Schutz und Sicherheit",
+            "Sachkundeprüfung 34a", "Unterrichtung 34a", "Sicherheitsmitarbeiter mit Berufserfahrung",
+            "ehemaliger Soldat mit Sicherheitserfahrung"
+        ]
+    },
+    "Projektmanagement": {
+        "pflichtskills": [
+            "Projektplanung", "Projektsteuerung", "Stakeholdermanagement", "Kommunikation",
+            "Terminplanung", "Risikomanagement", "Budgetkontrolle", "Reporting", "Organisation", "Problemlösung"
+        ],
+        "wunschskills": [
+            "Jira", "MS Project", "Scrum", "Agile Methoden", "Change Management",
+            "Prozessmanagement", "Englisch", "Präsentationstechniken"
+        ],
+        "qualifikationen": [
+            "Projektmanager", "Scrum Master", "Betriebswirtschaftliches Studium",
+            "Wirtschaftsingenieurwesen", "Projektmanagement Zertifizierung", "Berufserfahrung Projektmanagement"
+        ]
+    },
+    "Controlling": {
+        "pflichtskills": [
+            "Controlling", "Reporting", "Budgetplanung", "Forecasting", "Excel",
+            "Kostenrechnung", "Abweichungsanalyse", "Zahlenverständnis", "Finanzanalyse", "Sorgfalt"
+        ],
+        "wunschskills": [
+            "SAP CO", "Power BI", "SQL", "Jahresplanung", "Monatsabschluss",
+            "KPI Analyse", "Business Intelligence", "Englisch"
+        ],
+        "qualifikationen": [
+            "Controller", "Betriebswirtschaftliches Studium", "Industriekaufmann mit Controlling Erfahrung",
+            "Bilanzbuchhalter", "Finanzbuchhalter mit Controlling Erfahrung"
+        ]
+    },
+    "Marketing": {
+        "pflichtskills": [
+            "Marketing", "Kampagnenplanung", "Content Erstellung", "Zielgruppenanalyse", "Kommunikation",
+            "Social Media", "Markenverständnis", "Projektkoordination", "Kreativität", "Reporting"
+        ],
+        "wunschskills": [
+            "SEO", "SEA", "Google Analytics", "Meta Ads", "Canva",
+            "Adobe Creative Cloud", "E-Mail Marketing", "Performance Marketing"
+        ],
+        "qualifikationen": [
+            "Kaufmann für Marketingkommunikation", "Marketing Manager", "Mediengestalter mit Marketingerfahrung",
+            "Betriebswirtschaftliches Studium mit Marketing Schwerpunkt", "Kommunikationswissenschaften"
+        ]
+    },
+    "E-Commerce": {
+        "pflichtskills": [
+            "Online Shop Betreuung", "Produktdatenpflege", "Marketplace Management", "Kundenorientierung",
+            "Warenwirtschaft", "Analyse", "Content Pflege", "Prozessverständnis", "Kommunikation", "Excel"
+        ],
+        "wunschskills": [
+            "Shopify", "Amazon Seller Central", "Ebay", "SEO", "Google Analytics",
+            "Performance Marketing", "ERP Systeme", "Retourenmanagement"
+        ],
+        "qualifikationen": [
+            "Kaufmann im E-Commerce", "Kaufmann für Büromanagement mit E-Commerce Erfahrung",
+            "Marketing Ausbildung", "Betriebswirtschaftliches Studium", "E-Commerce Manager"
+        ]
+    },
+    "Data Analyst": {
+        "pflichtskills": [
+            "Datenanalyse", "Excel", "SQL", "Reporting", "Datenvisualisierung",
+            "Zahlenverständnis", "Datenqualität", "analytisches Denken", "Statistik Grundlagen", "Kommunikation"
+        ],
+        "wunschskills": [
+            "Python", "Power BI", "Tableau", "Pandas", "Machine Learning Grundlagen",
+            "ETL", "Datenbanken", "Business Intelligence"
+        ],
+        "qualifikationen": [
+            "Data Analyst", "Wirtschaftsinformatik", "Informatik", "Statistik",
+            "Betriebswirtschaft mit Analytics Schwerpunkt", "Quereinsteiger mit Datenanalyse Erfahrung"
+        ]
+    },
+    "Softwareentwicklung": {
+        "pflichtskills": [
+            "Programmierung", "Softwareentwicklung", "Problemlösung", "Git", "Testing",
+            "Datenbanken", "API Verständnis", "saubere Code Struktur", "Dokumentation", "Teamarbeit"
+        ],
+        "wunschskills": [
+            "Python", "JavaScript", "TypeScript", "React", "Backend Entwicklung",
+            "Cloud", "Docker", "CI CD", "Agile Methoden"
+        ],
+        "qualifikationen": [
+            "Fachinformatiker Anwendungsentwicklung", "Informatik Studium", "Softwareentwickler mit Berufserfahrung",
+            "Quereinsteiger mit Projektportfolio", "Wirtschaftsinformatik"
+        ]
+    },
+    "Assistenz der Geschäftsführung": {
+        "pflichtskills": [
+            "Terminmanagement", "Organisation", "Kommunikation", "Vertraulichkeit", "E-Mail Bearbeitung",
+            "Reiseplanung", "Protokollführung", "Priorisierung", "Microsoft Office", "Zuverlässigkeit"
+        ],
+        "wunschskills": [
+            "Englisch", "Projektkoordination", "Eventplanung", "Budgetübersicht",
+            "Präsentationserstellung", "Stakeholdermanagement", "CRM"
+        ],
+        "qualifikationen": [
+            "Kaufmann für Büromanagement", "Fremdsprachenkorrespondent", "Office Manager",
+            "Assistenz der Geschäftsführung mit Berufserfahrung", "Betriebswirtschaftliche Ausbildung"
+        ]
+    },
+    "Einkauf": {
+        "pflichtskills": [
+            "Einkauf", "Lieferantenmanagement", "Preisverhandlung", "Angebotseinholung", "Bestellwesen",
+            "Vertragsprüfung", "Kommunikation", "Zahlenverständnis", "Organisation", "ERP Systeme"
+        ],
+        "wunschskills": [
+            "SAP MM", "Englisch", "strategischer Einkauf", "Warengruppenmanagement",
+            "Vertragsmanagement", "Kostenanalyse", "Lieferantenbewertung"
+        ],
+        "qualifikationen": [
+            "Industriekaufmann", "Kaufmann im Groß und Außenhandelsmanagement", "Einkäufer mit Berufserfahrung",
+            "Betriebswirtschaftliches Studium", "Supply Chain Management"
+        ]
+    },
+    "Qualitätsmanagement": {
+        "pflichtskills": [
+            "Qualitätsmanagement", "Prozessmanagement", "Dokumentation", "Fehleranalyse", "Audit Vorbereitung",
+            "Kommunikation", "Sorgfalt", "Normenverständnis", "Maßnahmenverfolgung", "Reporting"
+        ],
+        "wunschskills": [
+            "ISO 9001", "Lean Management", "Six Sigma", "Reklamationsmanagement",
+            "Risikomanagement", "Schulungserfahrung", "Prozessoptimierung"
+        ],
+        "qualifikationen": [
+            "Qualitätsmanagementbeauftragter", "Qualitätsmanager", "Techniker mit QM Erfahrung",
+            "Betriebswirtschaftliches Studium mit QM Erfahrung", "ISO 9001 Schulung"
+        ]
     }
 }
 
@@ -487,9 +726,10 @@ berufsgruppe = st.selectbox(
 selected_group = berufsgruppe if berufsgruppe in berufsgruppen else "Bitte auswählen"
 selected_key = selected_group.lower().replace(" ", "_").replace("/", "_") if selected_group != "Bitte auswählen" else "none"
 
-suggested_pflicht = ", ".join(berufsgruppen[selected_group]["pflicht"]) if selected_group in berufsgruppen else ""
-suggested_wunsch = ", ".join(berufsgruppen[selected_group]["wunsch"]) if selected_group in berufsgruppen else ""
-suggested_qualifikationen = ", ".join(berufsgruppen[selected_group]["qualifikationen"]) if selected_group in berufsgruppen else ""
+profile = berufsgruppen.get(selected_group, {})
+suggested_pflicht = ", ".join(profile.get("pflichtskills", []))
+suggested_wunsch = ", ".join(profile.get("wunschskills", []))
+suggested_qualifikationen = ", ".join(profile.get("qualifikationen", []))
 
 counter = st.session_state.reset_counter
 
@@ -567,22 +807,128 @@ with col_gehalt_bewerber:
     )
 
 with col_gehalt_stelle:
-    stelle_gehalt_min = st.number_input(
-        "Gehaltsrahmen der Stelle (min € brutto/Jahr)",
-        min_value=0,
-        max_value=200000,
-        value=0,
-        step=1000,
-        key=f"stelle_gehalt_min_{counter}"
+    # Automatische Vorbelegung basierend auf Berufsgruppe und Erfahrung
+    if selected_group in gehaltsrahmen_nach_beruf:
+        if bewerber_erfahrung <= 2:
+            level = "junior"
+        elif bewerber_erfahrung <= 5:
+            level = "mid"
+        else:
+            level = "senior"
+        
+        auto_min = gehaltsrahmen_nach_beruf[selected_group][level]["min"]
+        auto_max = gehaltsrahmen_nach_beruf[selected_group][level]["max"]
+    else:
+        auto_min = 30000
+        auto_max = 60000
+    
+    st.write("**Gehaltsrahmen der Stelle** (automatisch vorbefüllt)")
+    col_gmin, col_gmax = st.columns(2)
+    with col_gmin:
+        stelle_gehalt_min = st.number_input(
+            "Min € brutto/Jahr",
+            min_value=0,
+            max_value=200000,
+            value=auto_min,
+            step=1000,
+            key=f"stelle_gehalt_min_{counter}"
+        )
+    with col_gmax:
+        stelle_gehalt_max = st.number_input(
+            "Max € brutto/Jahr",
+            min_value=0,
+            max_value=200000,
+            value=auto_max,
+            step=1000,
+            key=f"stelle_gehalt_max_{counter}"
+        )
+
+st.divider()
+
+# Unternehmenskontext (optional)
+st.subheader("Unternehmenskontext (optional)")
+
+col_logo, col_ent = st.columns([1, 2])
+with col_logo:
+    st.write("**Unternehmenslogo**")
+    uploaded_logo = st.file_uploader(
+        "Logo hochladen",
+        type=["png", "jpg", "jpeg"],
+        key=f"logo_upload_{counter}",
+        label_visibility="collapsed"
     )
-    stelle_gehalt_max = st.number_input(
-        "Gehaltsrahmen der Stelle (max € brutto/Jahr)",
-        min_value=0,
-        max_value=200000,
-        value=0,
-        step=1000,
-        key=f"stelle_gehalt_max_{counter}"
+
+with col_ent:
+    col_name, col_branch = st.columns(2)
+    with col_name:
+        unternehmensname = st.text_input(
+            "Unternehmensname",
+            key=f"unternehmensname_{counter}",
+            placeholder="z. B. Musterunternehmen GmbH"
+        )
+    with col_branch:
+        branche = st.text_input(
+            "Branche",
+            key=f"branche_{counter}",
+            placeholder="z. B. Einzelhandel, IT-Services"
+        )
+
+col_standort, col_modell = st.columns(2)
+with col_standort:
+    standort = st.text_input(
+        "Standort",
+        key=f"standort_{counter}",
+        placeholder="z. B. Berlin, Remote"
     )
+with col_modell:
+    arbeitsmodell = st.selectbox(
+        "Arbeitsmodell",
+        ["Vor Ort", "Hybrid", "Remote"],
+        key=f"arbeitsmodell_{counter}"
+    )
+
+col_team, col_schicht = st.columns(2)
+with col_team:
+    teamgroesse = st.number_input(
+        "Teamgröße",
+        min_value=0,
+        max_value=1000,
+        value=0,
+        step=1,
+        key=f"teamgroesse_{counter}"
+    )
+with col_schicht:
+    schichtarbeit = st.selectbox(
+        "Schichtarbeit erforderlich",
+        ["Nein", "Ja"],
+        key=f"schichtarbeit_{counter}"
+    )
+
+kundenkontakt = st.checkbox(
+    "Kundenkontakt erforderlich",
+    key=f"kundenkontakt_{counter}"
+)
+
+st.divider()
+
+# Lebenslauf Upload (optional)
+st.subheader("Lebenslauf Upload (optional)")
+uploaded_lebenslauf = st.file_uploader(
+    "Lebenslauf hochladen (PDF oder TXT)",
+    type=["pdf", "txt"],
+    key=f"lebenslauf_upload_{counter}"
+)
+
+if uploaded_lebenslauf:
+    if uploaded_lebenslauf.type == "text/plain":
+        lebenslauf_text = uploaded_lebenslauf.read().decode("utf-8")
+        st.success("TXT-Datei gelesen")
+        with st.expander("Lebenslauf Inhalt anzeigen"):
+            st.text(lebenslauf_text)
+    elif uploaded_lebenslauf.type == "application/pdf":
+        st.info("PDF-Analyse wird in einer späteren Version ergänzt")
+
+st.divider()
 
 # Buttons in einer Reihe
 col_btn1, col_btn2 = st.columns(2)
@@ -602,8 +948,8 @@ if matching_clicked:
 
 if st.session_state.show_results and bewerber_eingabe and pflicht_skills_eingabe and wunsch_skills_eingabe and qualifikation_bewerber and qualifikation_stelle:
     bewerber_skills = set(skill.strip().lower() for skill in bewerber_eingabe.split(",") if skill.strip())
-    pflicht_skills = set(skill.strip().lower() for skill in pflicht_skills_eingabe.split(",") if skill.strip())
-    wunsch_skills = set(skill.strip().lower() for skill in wunsch_skills_eingabe.split(",") if skill.strip())
+    pflicht_skills_stelle = set(skill.strip().lower() for skill in pflicht_skills_eingabe.split(",") if skill.strip())
+    wunsch_skills_stelle = set(skill.strip().lower() for skill in wunsch_skills_eingabe.split(",") if skill.strip())
     qual_bewerber_set = set(q.strip().lower() for q in qualifikation_bewerber.split(",") if q.strip())
     qual_stelle_set = set(q.strip().lower() for q in qualifikation_stelle.split(",") if q.strip())
 
@@ -646,12 +992,12 @@ if st.session_state.show_results and bewerber_eingabe and pflicht_skills_eingabe
         return direct, similar
 
     # Skill-Matching
-    pflicht_direct, pflicht_similar = find_similar_skills(bewerber_skills, pflicht_skills)
-    wunsch_direct, wunsch_similar = find_similar_skills(bewerber_skills, wunsch_skills)
+    pflicht_direct, pflicht_similar = find_similar_skills(bewerber_skills, pflicht_skills_stelle)
+    wunsch_direct, wunsch_similar = find_similar_skills(bewerber_skills, wunsch_skills_stelle)
 
     # Scores berechnen
-    pflicht_score = (len(pflicht_direct) + 0.5 * len(pflicht_similar)) / len(pflicht_skills) * 100 if pflicht_skills else 100
-    wunsch_score = (len(wunsch_direct) + 0.5 * len(wunsch_similar)) / len(wunsch_skills) * 100 if wunsch_skills else 100
+    pflicht_score = (len(pflicht_direct) + 0.5 * len(pflicht_similar)) / len(pflicht_skills_stelle) * 100 if pflicht_skills_stelle else 100
+    wunsch_score = (len(wunsch_direct) + 0.5 * len(wunsch_similar)) / len(wunsch_skills_stelle) * 100 if wunsch_skills_stelle else 100
 
     # Softskill-Score (ähnliche Skills)
     softskill_score = min(100, len(pflicht_similar) * 10 + len(wunsch_similar) * 5)
@@ -760,8 +1106,8 @@ if st.session_state.show_results and bewerber_eingabe and pflicht_skills_eingabe
         st.info("Keine erforderliche Qualifikation angegeben")
 
     # Fehlende Skills berechnen
-    fehlende_pflicht = pflicht_skills - bewerber_skills - pflicht_similar
-    fehlende_wunsch = wunsch_skills - bewerber_skills - wunsch_similar
+    fehlende_pflicht = pflicht_skills_stelle - bewerber_skills - pflicht_similar
+    fehlende_wunsch = wunsch_skills_stelle - bewerber_skills - wunsch_similar
 
     # Qualifizierungsempfehlungen
     st.subheader("Qualifizierungsempfehlungen")
