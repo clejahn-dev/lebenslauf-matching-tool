@@ -1,6 +1,9 @@
 import streamlit as st
 from fuzzywuzzy import fuzz
 import re
+import hashlib
+import requests
+from bs4 import BeautifulSoup
 from io import BytesIO
 from datetime import datetime
 
@@ -67,6 +70,162 @@ def normalize_display_text(text):
 
 def split_normalized_values(value):
     return {normalize_text(item) for item in str(value or "").split(",") if normalize_text(item)}
+
+
+def make_cv_signature(cv_text, selected_group, counter):
+    """Erstellt einen stabilen Fingerabdruck für den aktuellen CV-Kontext."""
+    if not cv_text:
+        return f"empty:{normalize_text(selected_group)}:{counter}"
+    signature_data = f"{normalize_text(cv_text)}|{normalize_text(selected_group)}|{counter}"
+    return hashlib.sha256(signature_data.encode("utf-8")).hexdigest()
+
+
+def fetch_text_from_url(url):
+    """Lädt eine Webseite und extrahiert lesbaren Text mit BeautifulSoup."""
+    try:
+        response = requests.get(url, timeout=10, headers={
+            "User-Agent": "Mozilla/5.0 (compatible; JobFitCheck/1.0)"
+        })
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        for tag in soup(["script", "style", "noscript", "header", "footer", "form"]):
+            tag.decompose()
+        texts = []
+        for element in soup.find_all(["p", "li", "h1", "h2", "h3", "h4"]):
+            snippet = element.get_text(separator=" ", strip=True)
+            if snippet:
+                texts.append(snippet)
+        return normalize_display_text("\n".join(texts))
+    except Exception:
+        return None
+
+
+def extract_salary_range(text):
+    if not text:
+        return None, None
+    normalized = normalize_text(text)
+    patterns = [
+        r"(\d{2,3}(?:[\.,]\d{3})?)\s*(?:€|eur|euro)\s*(?:bis|\-|–|—)\s*(\d{2,3}(?:[\.,]\d{3})?)",
+        r"(\d{2,3}(?:[\.,]\d{3})?)\s*(?:bis|\-|–|—)\s*(\d{2,3}(?:[\.,]\d{3})?)\s*(?:€|eur|euro)",
+        r"(?:ab|mindestens|von)\s*(\d{2,3}(?:[\.,]\d{3})?)\s*(?:€|eur|euro)",
+        r"(\d{2,3}(?:[\.,]\d{3})?)\s*(?:€|eur|euro)"
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, normalized)
+        if match:
+            if len(match.groups()) >= 2 and match.group(2):
+                min_val = int(match.group(1).replace('.', '').replace(',', '.'))
+                max_val = int(match.group(2).replace('.', '').replace(',', '.'))
+                return min_val, max_val
+            elif len(match.groups()) >= 1:
+                value = int(match.group(1).replace('.', '').replace(',', '.'))
+                return value, value
+    return None, None
+
+
+def analyze_job_profile_text(job_text, selected_group, berufsgruppen):
+    result = {
+        "pflichtskills": [],
+        "wunschskills": [],
+        "qualifikationen": [],
+        "berufserfahrung_jahre": None,
+        "gehalt_min": None,
+        "gehalt_max": None
+    }
+    if not job_text:
+        return result
+
+    normalized = normalize_text(job_text)
+    profile = berufsgruppen.get(selected_group, {})
+    pflicht_candidates = profile.get("pflichtskills", [])
+    wunsch_candidates = profile.get("wunschskills", [])
+    qual_candidates = profile.get("qualifikationen", [])
+
+    def text_contains(term):
+        term = normalize_text(term)
+        return bool(term) and (term in normalized or fuzz.partial_ratio(term, normalized) >= 92)
+
+    pflicht = {skill for skill in pflicht_candidates if text_contains(skill)}
+    wunsch = {skill for skill in wunsch_candidates if text_contains(skill)}
+    qual = {qual for qual in qual_candidates if text_contains(qual)}
+
+    for domain, mapping in DOMAIN_MAPPINGS.items():
+        if any(text_contains(trigger) for trigger in mapping.get("triggers", [])):
+            if domain in relevant_domains_for_group(selected_group):
+                pflicht.update({skill for skill in mapping.get("skills", []) if text_contains(skill)})
+            else:
+                wunsch.update({skill for skill in mapping.get("skills", []) if text_contains(skill)})
+            qual.update({q for q in mapping.get("qualifikationen", []) if text_contains(q)})
+
+    experience = None
+    exp_match = re.search(r"(?:mindestens|ab|mehr als|über|mind\.|ca\.|circa)\s*(\d{1,2})\s*(?:jahre|j)\b", normalized)
+    if exp_match:
+        experience = int(exp_match.group(1))
+    else:
+        exp_match = re.search(r"(\d{1,2})\s*(?:jahre|j)\s*(?:berufserfahrung|erfahrung)", normalized)
+        if exp_match:
+            experience = int(exp_match.group(1))
+
+    gehalt_min, gehalt_max = extract_salary_range(normalized)
+
+    result["pflichtskills"] = sorted(pflicht)
+    result["wunschskills"] = sorted(wunsch)
+    result["qualifikationen"] = sorted(qual)
+    result["berufserfahrung_jahre"] = experience
+    result["gehalt_min"] = gehalt_min
+    result["gehalt_max"] = gehalt_max
+    return result
+
+
+def filter_cv_noise(skills):
+    exclude = {
+        "kontakt", "adresse", "mobil", "email", "e mail", "interessen",
+        "literatur", "persönlichkeitsentwicklung", "anschrift", "telefon"
+    }
+    return [skill for skill in skills if normalize_text(skill) not in exclude]
+
+
+def generate_cv_summary(cv_analyse, selected_group):
+    if not cv_analyse:
+        return ""
+    parts = []
+    experience = cv_analyse.get("berufserfahrung_jahre")
+    if experience is not None:
+        parts.append(f"Berufserfahrung: {experience} Jahre")
+    skills = cv_analyse.get("skills", [])
+    if skills:
+        parts.append(f"Wichtigste Skills: {', '.join(skills[:8])}")
+    qualifikationen = cv_analyse.get("qualifikationen", [])
+    if qualifikationen:
+        parts.append(f"Qualifikationen: {', '.join(qualifikationen)}")
+    sprachen = cv_analyse.get("sprachen", [])
+    if sprachen:
+        parts.append(f"Sprachen: {', '.join(sprachen)}")
+    zertifikate = cv_analyse.get("zertifikate", [])
+    if zertifikate:
+        parts.append(f"Zertifikate: {', '.join(zertifikate)}")
+    fuehrerscheine = cv_analyse.get("fuehrerscheine", [])
+    if fuehrerscheine:
+        parts.append(f"Führerscheine: {', '.join(fuehrerscheine)}")
+    if selected_group and selected_group != "Bitte auswählen":
+        parts.append(f"Zielrolle: {selected_group}")
+    return "\n".join(parts)
+
+
+def combine_values(*value_groups):
+    """Kombiniert kommaseparierte Texte und Listen ohne Duplikate."""
+    combined = []
+    seen = set()
+    for group in value_groups:
+        if not group:
+            continue
+        values = group.split(",") if isinstance(group, str) else group
+        for value in values:
+            normalized = normalize_text(value)
+            if normalized and normalized not in seen:
+                combined.append(normalized)
+                seen.add(normalized)
+    return ", ".join(combined)
 
 
 def format_detected_values(values):
@@ -507,8 +666,70 @@ DOMAIN_MAPPINGS = {
         "qualifikationen": [
             "fitnesstrainer", "ernährungsberater"
         ]
+    },
+    "office": {
+        "triggers": ["büroorganisation", "assistenz", "terminplanung", "reisenplanung", "office manager", "bürokaufmann"],
+        "skills": ["büroorganisation", "terminplanung", "organisation", "kommunikation", "microsoft office", "schriftverkehr", "protokollführung", "recherche"],
+        "qualifikationen": ["kaufmann für büromanagement", "office manager", "assistenz der geschäftsführung"]
+    },
+    "sales": {
+        "triggers": ["vertrieb", "kaltakquise", "salesforce", "key account", "kundenakquise", "pipedrive"],
+        "skills": ["vertrieb", "kundenberatung", "verhandlung", "abschlusssicherheit", "crm", "angebotserstellung"],
+        "qualifikationen": ["kaufmann im einzelhandel", "industriekaufmann", "sales manager"]
+    },
+    "care": {
+        "triggers": ["pflege", "patientenbetreuung", "hygiene", "wundversorgung", "altenpflege", "krankenpflege"],
+        "skills": ["grundpflege", "behandlungspflege", "pflegedokumentation", "patientenbetreuung", "hygiene", "medikamentengabe"],
+        "qualifikationen": ["pflegefachkraft", "gesundheits und krankenpfleger", "altenpfleger"]
+    },
+    "it": {
+        "triggers": ["it support", "windows", "netzwerk", "hardware", "helpdesk", "active directory"],
+        "skills": ["it support", "fehleranalyse", "netzwerke", "benutzersupport", "ticketsystem", "systemdokumentation"],
+        "qualifikationen": ["fachinformatiker systemintegration", "it support specialist"]
+    },
+    "accounting": {
+        "triggers": ["buchhaltung", "datev", "finanzbuchhaltung", "kontenabstimmung", "kreditoren", "debitoren"],
+        "skills": ["finanzbuchhaltung", "debitorenbuchhaltung", "kreditorenbuchhaltung", "rechnungsprüfung", "zahlenverständnis", "excel"],
+        "qualifikationen": ["buchhalter", "finanzbuchhalter", "steuerfachangestellter"]
+    },
+    "logistics": {
+        "triggers": ["lager", "logistik", "kommissionierung", "wareneingang", "flurförderzeug", "staplerschein"],
+        "skills": ["kommissionierung", "lagerung", "verpackung", "inventur", "bestandskontrolle", "staplerschein"],
+        "qualifikationen": ["fachkraft für lagerlogistik", "lagerhelfer"]
+    },
+    "project": {
+        "triggers": ["projektmanagement", "stakeholder", "risikomanagement", "projektsteuerung", "budgetkontrolle", "terminplanung"],
+        "skills": ["projektplanung", "projektsteuerung", "stakeholdermanagement", "risikomanagement", "budgetkontrolle", "reporting"],
+        "qualifikationen": ["projektmanager", "scrum master", "projektmanagement zertifizierung"]
+    },
+    "marketing": {
+        "triggers": ["marketing", "kampagne", "social media", "content", "zielgruppenanalyse", "seo", "sea"],
+        "skills": ["marketing", "content erstellung", "social media", "zielgruppenanalyse", "kommunikation", "reporting"],
+        "qualifikationen": ["kaufmann für marketingkommunikation", "marketing manager"]
+    },
+    "data": {
+        "triggers": ["datenanalyse", "sql", "reporting", "power bi", "tableau", "business intelligence"],
+        "skills": ["datenanalyse", "reporting", "sql", "datenvisualisierung", "business intelligence"],
+        "qualifikationen": ["data analyst", "wirtschaftsinformatik"]
+    },
+    "software": {
+        "triggers": ["programmierung", "softwareentwicklung", "git", "testing", "api", "docker"],
+        "skills": ["programmierung", "softwareentwicklung", "git", "testing", "api verständnis", "dokumentation"],
+        "qualifikationen": ["fachinformatiker anwendungsentwicklung", "informatik studium"]
+    },
+    "quality": {
+        "triggers": ["qualitätsmanagement", "audit", "iso 9001", "prozesse", "fehleranalyse", "reklamationsmanagement"],
+        "skills": ["qualitätsmanagement", "audit vorbereitung", "prozessmanagement", "fehleranalyse", "dokumentation"],
+        "qualifikationen": ["qualitätsmanagementbeauftragter", "iso 9001 schulung"]
+    },
+    "purchase": {
+        "triggers": ["einkauf", "lieferantenmanagement", "preisverhandlung", "bestellwesen", "warengruppenmanagement"],
+        "skills": ["einkauf", "lieferantenmanagement", "preisverhandlung", "bestellwesen", "vertragsprüfung"],
+        "qualifikationen": ["industriekaufmann", "einkäufer mit berufserfahrung"]
     }
 }
+
+cv_skill_catalog = DOMAIN_MAPPINGS
 
 
 def relevant_domains_for_group(selected_berufsgruppe):
@@ -568,7 +789,7 @@ def analyze_cv_text(cv_text, selected_berufsgruppe, berufsprofile, qualifikation
     transfer_skills = set()
 
     for domain in relevant_domains_for_group(selected_berufsgruppe):
-        mapping = DOMAIN_MAPPINGS.get(domain, {})
+        mapping = cv_skill_catalog.get(domain, {})
         matched_domain = False
         for trigger in mapping.get("triggers", []):
             if text_contains(trigger):
@@ -630,6 +851,7 @@ def analyze_cv_text(cv_text, selected_berufsgruppe, berufsprofile, qualifikation
     ]
     zertifikate = {normalize_text(zertifikat) for zertifikat in zertifikat_candidates if text_contains(zertifikat)}
     skills.update(zertifikate)
+    skills = set(filter_cv_noise(skills))
 
     result["skills"] = sorted(skills)
     result["qualifikationen"] = sorted(qualifikationen)
@@ -1191,12 +1413,13 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📄 Lebenslauf Matching Tool")
+st.title("📄 Lebenslauf & Stellenprofil Matching")
 st.write("""
-**Professionelle Ersteinschätzung von Bewerberprofilen**
+**Schlankes Matching für Lebenslauf & Stellenprofil**
 
-Dieses Tool unterstützt eine strukturierte Ersteinschätzung von Bewerberprofilen gegen offene Stellen.
-Die Matching-Scores sind automatisierte Orientierungswerte. **Die finale Einstellungsentscheidung bleibt beim Menschen.**
+Lade einen Lebenslauf hoch oder füge den Text ein. Füge anschließend ein Stellenprofil als Text, PDF oder Link hinzu.
+Das Tool extrahiert Skills, Qualifikationen, Berufserfahrung und optional den Gehaltsrahmen.
+**Die Ergebnisse sind unterstützende Hinweise, keine finale Entscheidung.**
 """)
 
 berufsgruppen = {
@@ -1847,6 +2070,11 @@ if uploaded_lebenslauf:
                 st.write(f"**Zertifikate:** {format_detected_values(cv_analyse['zertifikate'])}")
                 if cv_analyse["berufserfahrung_jahre"] is not None:
                     st.write(f"**Berufserfahrung:** {cv_analyse['berufserfahrung_jahre']} Jahre")
+
+        cv_summary = generate_cv_summary(cv_analyse, selected_group)
+        if cv_summary:
+            with st.expander("Lebenslauf Zusammenfassung"):
+                st.write(cv_summary)
     else:
         st.session_state.lebenslauf_text = ""
         st.warning("Der Lebenslauf konnte nicht vollständig ausgelesen werden. Bitte Bewerber-Skills manuell ergänzen.")
@@ -1929,106 +2157,101 @@ with col_gehalt_bewerber:
 with col_gehalt_stelle:
     # Automatische Vorbelegung basierend auf Berufsgruppe und geforderter Erfahrung
     if selected_group in gehaltsrahmen_nach_beruf:
-        level = get_experience_level(stelle_min_erfahrung)
-        auto_min = gehaltsrahmen_nach_beruf[selected_group][level]["min"]
-        auto_max = gehaltsrahmen_nach_beruf[selected_group][level]["max"]
+        auto_min = gehaltsrahmen_nach_beruf[selected_group][get_experience_level(stelle_min_erfahrung)]["min"]
+        auto_max = gehaltsrahmen_nach_beruf[selected_group][get_experience_level(stelle_min_erfahrung)]["max"]
         gehaltsrahmen_verfuegbar = True
     else:
-        auto_min = 30000
-        auto_max = 60000
-        level = "fallback"
+        auto_min = 0
+        auto_max = 0
         gehaltsrahmen_verfuegbar = False
     
     st.write("**Gehaltsrahmen der Stelle** (automatisch vorbefüllt)")
     st.caption("Automatisch vorgeschlagener Gehaltsrahmen auf Basis von Berufsgruppe und geforderter Berufserfahrung.")
     if not gehaltsrahmen_verfuegbar:
-        st.warning("Für diese Berufsgruppe ist noch kein spezifischer Gehaltsrahmen hinterlegt. Die Standardwerte werden nur als Fallback verwendet.")
-    st.caption("Die Werte sind interne Richtwerte und sollten mit Markt- oder Entgeltatlas-Daten geprüft werden.")
+        st.warning("Für diese Berufsgruppe ist noch kein spezifischer Gehaltsrahmen hinterlegt. Bitte geben Sie bei Bedarf einen realistischen Wert ein.")
+    st.caption("Die Werte sollten mit internen / marktüblichen Daten überprüft werden.")
     col_gmin, col_gmax = st.columns(2)
     with col_gmin:
+        stelle_gehalt_min_key = f"stelle_gehalt_min_{counter}_{selected_key}"
+        stelle_gehalt_max_key = f"stelle_gehalt_max_{counter}_{selected_key}"
         stelle_gehalt_min = st.number_input(
             "Min € brutto/Jahr",
             min_value=0,
             max_value=200000,
-            value=auto_min,
+            value=st.session_state.get(stelle_gehalt_min_key, auto_min),
             step=1000,
-            key=f"stelle_gehalt_min_{counter}_{selected_key}_{level}"
+            key=stelle_gehalt_min_key
         )
     with col_gmax:
         stelle_gehalt_max = st.number_input(
             "Max € brutto/Jahr",
             min_value=0,
             max_value=200000,
-            value=auto_max,
+            value=st.session_state.get(stelle_gehalt_max_key, auto_max),
             step=1000,
-            key=f"stelle_gehalt_max_{counter}_{selected_key}_{level}"
+            key=stelle_gehalt_max_key
         )
 
 st.divider()
 
-# Unternehmenskontext (optional)
-st.subheader("Unternehmenskontext (optional)")
+st.subheader("Stellenprofil-Quelle eingeben (optional)")
+stellenprofil_text_key = f"stellenprofil_text_{counter}"
+stellenprofil_link_key = f"stellenprofil_link_{counter}"
 
-col_logo, col_ent = st.columns([1, 2])
-with col_logo:
-    st.write("**Unternehmenslogo**")
-    uploaded_logo = st.file_uploader(
-        "Logo hochladen",
-        type=["png", "jpg", "jpeg"],
-        key=f"logo_upload_{counter}",
-        label_visibility="collapsed"
-    )
-
-with col_ent:
-    col_name, col_branch = st.columns(2)
-    with col_name:
-        unternehmensname = st.text_input(
-            "Unternehmensname",
-            key=f"unternehmensname_{counter}",
-            placeholder="z. B. Musterunternehmen GmbH"
-        )
-    with col_branch:
-        branche = st.text_input(
-            "Branche",
-            key=f"branche_{counter}",
-            placeholder="z. B. Einzelhandel, IT-Services"
-        )
-
-col_standort, col_modell = st.columns(2)
-with col_standort:
-    standort = st.text_input(
-        "Standort",
-        key=f"standort_{counter}",
-        placeholder="z. B. Berlin, Remote"
-    )
-with col_modell:
-    arbeitsmodell = st.selectbox(
-        "Arbeitsmodell",
-        ["Vor Ort", "Hybrid", "Remote"],
-        key=f"arbeitsmodell_{counter}"
-    )
-
-col_team, col_schicht = st.columns(2)
-with col_team:
-    teamgroesse = st.number_input(
-        "Teamgröße",
-        min_value=0,
-        max_value=1000,
-        value=0,
-        step=1,
-        key=f"teamgroesse_{counter}"
-    )
-with col_schicht:
-    schichtarbeit = st.selectbox(
-        "Schichtarbeit erforderlich",
-        ["Nein", "Ja"],
-        key=f"schichtarbeit_{counter}"
-    )
-
-kundenkontakt = st.checkbox(
-    "Kundenkontakt erforderlich",
-    key=f"kundenkontakt_{counter}"
+stellenprofil_text_input = st.text_area(
+    "Stellenprofil-Text (optional)",
+    value=st.session_state.get(stellenprofil_text_key, ""),
+    key=stellenprofil_text_key,
+    height=200
 )
+stellenprofil_link = st.text_input(
+    "Link zur Stellenanzeige (optional)",
+    value=st.session_state.get(stellenprofil_link_key, ""),
+    key=stellenprofil_link_key,
+    placeholder="https://..."
+)
+
+if stellenprofil_link and not stellenprofil_text_input:
+    fetched_profile_text = fetch_text_from_url(stellenprofil_link)
+    if fetched_profile_text:
+        st.session_state[stellenprofil_text_key] = fetched_profile_text
+        stellenprofil_text_input = fetched_profile_text
+        st.success("✓ Stellenprofil aus dem Link erfolgreich geladen.")
+    else:
+        st.warning("Der Link konnte nicht automatisch ausgelesen werden. Bitte Stellenprofil-Text einfügen oder PDF hochladen.")
+
+stellenprofil_text = stellenprofil_text_input or ""
+job_profile_analysis = analyze_job_profile_text(stellenprofil_text, selected_group, berufsgruppen) if stellenprofil_text else None
+
+if job_profile_analysis:
+    job_profile_signature = make_cv_signature(stellenprofil_text, selected_group, counter)
+    job_profile_autofill_key = "job_profile_autofill_signature"
+    should_apply_job_autofill = st.session_state.get(job_profile_autofill_key) != job_profile_signature
+    if should_apply_job_autofill:
+        st.session_state[f"pflicht_skills_eingabe_{counter}_{selected_key}"] = combine_values(
+            st.session_state.get(f"pflicht_skills_eingabe_{counter}_{selected_key}", ""),
+            ", ".join(job_profile_analysis["pflichtskills"])
+        )
+        st.session_state[f"wunsch_skills_eingabe_{counter}_{selected_key}"] = combine_values(
+            st.session_state.get(f"wunsch_skills_eingabe_{counter}_{selected_key}", ""),
+            ", ".join(job_profile_analysis["wunschskills"])
+        )
+        st.session_state[f"qualifikation_stelle_{counter}_{selected_key}"] = combine_values(
+            st.session_state.get(f"qualifikation_stelle_{counter}_{selected_key}", ""),
+            ", ".join(job_profile_analysis["qualifikationen"])
+        )
+        stelle_min_key = f"stelle_min_erfahrung_{counter}"
+        if job_profile_analysis["berufserfahrung_jahre"] is not None and not st.session_state.get(stelle_min_key):
+            st.session_state[stelle_min_key] = min(job_profile_analysis["berufserfahrung_jahre"], 50)
+        if job_profile_analysis["gehalt_min"]:
+            current_min = st.session_state.get(stelle_gehalt_min_key, 0)
+            if not current_min:
+                st.session_state[stelle_gehalt_min_key] = job_profile_analysis["gehalt_min"]
+        if job_profile_analysis["gehalt_max"]:
+            current_max = st.session_state.get(stelle_gehalt_max_key, 0)
+            if not current_max:
+                st.session_state[stelle_gehalt_max_key] = job_profile_analysis["gehalt_max"]
+        st.session_state[job_profile_autofill_key] = job_profile_signature
 
 st.divider()
 
@@ -2041,10 +2264,11 @@ uploaded_stellenprofil = st.file_uploader(
 )
 
 stellenprofil_text = ""
-if uploaded_stellenprofil:
+if uploaded_stellenprofil and not stellenprofil_text:
     stellenprofil_text = extract_text_from_pdf(uploaded_stellenprofil)
     if stellenprofil_text:
         st.success("✓ Stellenprofil PDF erfolgreich verarbeitet")
+        job_profile_analysis = analyze_job_profile_text(stellenprofil_text, selected_group, berufsgruppen)
         # Normalisiere und kürze Text für Anzeige
         stellenprofil_display = normalize_display_text(stellenprofil_text)
         with st.expander("Stellenprofil Vorschau (erste 1500 Zeichen)"):
@@ -2337,25 +2561,14 @@ if st.session_state.show_results and (bewerber_eingabe or qualifikation_bewerber
     # Ausführliche Bewertung
     st.write(f"**Bewertung**: {results['gehalt_status']} {results['gehalt_match']}")
     
+    if results.get("fehlende_pflicht") is not None:
+        st.subheader("Direkter Abgleich Lebenslauf ↔ Stellenprofil")
+        st.write(f"**Direkte Pflichttreffer:** {format_detected_values(results['pflicht_direct']) or 'Keine'}")
+        st.write(f"**Direkte Wunschtreffer:** {format_detected_values(results['wunsch_direct']) or 'Keine'}")
+        st.write(f"**Fehlende Pflichtskills:** {format_detected_values(results['fehlende_pflicht']) or 'Keine'}")
+        st.write(f"**Fehlende Wunschskills:** {format_detected_values(results['fehlende_wunsch']) or 'Keine'}")
+    
     st.info("ℹ️ **Hinweis:** Die hier angezeigten Gehaltswerte sind interne Richtwerte und ersetzen keine verbindliche Marktanalyse. Für belastbare Gehaltsdaten sollte der [Entgeltatlas der Bundesagentur für Arbeit](https://web.arbeitsagentur.de/entgeltatlas/) ergänzend geprüft werden.")
-
-    # Unternehmenskontext anzeigen (falls ausgefüllt)
-    if unternehmensname or branche or standort:
-        st.subheader("Unternehmenskontext")
-        if unternehmensname:
-            st.write(f"**Unternehmen**: {unternehmensname}")
-        if branche:
-            st.write(f"**Branche**: {branche}")
-        if standort:
-            st.write(f"**Standort**: {standort}")
-        if arbeitsmodell:
-            st.write(f"**Arbeitsmodell**: {arbeitsmodell}")
-        if teamgroesse > 0:
-            st.write(f"**Teamgröße**: {teamgroesse} Personen")
-        if 'kundenkontakt' in locals() and kundenkontakt:
-            st.write(f"**Kundenkontakt**: {kundenkontakt}")
-        if 'schichtarbeit' in locals() and schichtarbeit:
-            st.write(f"**Schichtarbeit**: {schichtarbeit}")
 
     col1, col2 = st.columns(2)
 
